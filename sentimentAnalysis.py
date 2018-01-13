@@ -9,6 +9,8 @@ import nltk
 import csv
 import pandas as pd
 import matplotlib
+import numpy as np
+from numpy import where
 
 import nltk.classify.util
 from nltk.classify import NaiveBayesClassifier
@@ -180,16 +182,51 @@ plt.axis('off')
 plt.show()
 ##############################################
 ##############################################
-mr=dfTrain_multiple
-data = dict(pos = mr.fileids('pos'),
-            neg = mr.fileids('neg'))
-print mr.raw(data['pos'][0])[:100]
+
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn import metrics
+
+df = pd.read_csv('C:/Users/Pedram/Documents/GitManemuneee/KagTox001/train.csv')
+
+df['class']=where(dfTrain.identity_hate==1, "identity_hate", 
+       where(dfTrain.threat==1, "threat",
+             where(dfTrain.insult==1, "insult",
+                   where(dfTrain.obscene==1, "obscene",
+                         where(dfTrain.severe_toxic==1, "severe_toxic",
+                               where(dfTrain.toxic==1, "toxic", 0))))))
+
+y = df['class']
+x_train, x_test, y_train, y_test = train_test_split(df['comment_text'],
+                                                    y, test_size=0.33,
+                                                    random_state=53)
+
+
+count_vectorizer = CountVectorizer(stop_words='english')
+count_train = count_vectorizer.fit_transform(x_train.values)
+count_test = count_vectorizer.transform(x_test.values)
+
+nb_classifier = MultinomialNB()
+nb_classifier.fit(count_train, y_train)
+pred = nb_classifier.predict(count_test)
+metrics.accuracy_score(y_test, pred)
+metrics.confusion_matrix(y_test, pred)
+### We have the model and we just have to apply it on the test set
 
 
 
 
+dfTest = pd.read_csv('C:/Users/Pedram/Documents/GitManemuneee/KagTox001/test.csv')
+dfTest = dfTest.apply(lambda row: punctuation_remover)
+dfTest = dfTest['comment_text']
+pd.DataFrame.dropna(dfTest, axis = 1, how = 'all')
 
 
+count_test = count_vectorizer.transform(dfTest.values)
+predTestSet = nb_classifier.predict(dfTest)
+##############################################
+##############################################
 dfTrain.loc[1, 'tokenized']
 dfTrain1=dfTrain.loc[0:1,]
 dfTrain1.loc['tokenized_clean']=dfTrain1.apply(lambda row: stop_word_remover(row['tokenized']), axis=1)
